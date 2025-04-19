@@ -214,9 +214,13 @@ func main() {
 			log.Printf(
 				"Both \"%s\" and \"%s\" exist; skipping.\n",
 				baseName,
-				filepath.Join(filepath.Dir(outPath), nameWithoutExt, "index.md"),
+				filepath.Join(filepath.Dir(relPath), nameWithoutExt, "index.md"),
 			)
 			return nil
+		} else {
+			if nameWithoutExt != "index" {
+				outPath = filepath.Join(buildDir, filepath.Dir(relPath), nameWithoutExt, "index.html")
+			}
 		}
 
 		err = os.MkdirAll(filepath.Dir(outPath), 0755)
@@ -278,6 +282,26 @@ func main() {
 						},
 					}
 					n.AppendChild(styleNode)
+
+					scriptNode := &html.Node{
+						Type: html.ElementNode,
+						Data: "script",
+						Attr: []html.Attribute{
+							{
+								Key: "src",
+								Val: "https://unpkg.com/htmx.org@2.0.4",
+							},
+						},
+					}
+					n.AppendChild(scriptNode)
+				} else if n.Data == "markdown" {
+					n.Type = html.RawNode
+					n.Data = markdown
+				} else if n.Data == "a" {
+					n.Attr = append(n.Attr, html.Attribute{
+						Key: "hx-boost",
+						Val: "true",
+					})
 				}
 			}
 
