@@ -347,7 +347,7 @@ func main() {
 				}
 			}
 		} else {
-			template = []byte("markdown")
+			template = []byte(`<!doctypehtml><html lang="en"><meta charset="UTF-8"><meta content="width=device-width,initial-scale=1"name="viewport"><body><markdown></markdown>`)
 			log.Printf("Default template does not exist; proceeding to not use a template.")
 		}
 
@@ -359,7 +359,8 @@ func main() {
 		var walk func(*html.Node)
 		walk = func(n *html.Node) {
 			if n.Type == html.ElementNode {
-				if n.Data == "head" {
+				switch n.Data {
+				case "head":
 					titleNode := &html.Node{
 						Type: html.ElementNode,
 						Data: "title",
@@ -403,14 +404,53 @@ func main() {
 						},
 					}
 					n.AppendChild(scriptNode)
-				} else if n.Data == "a" {
+				case "a":
 					n.Attr = append(n.Attr, html.Attribute{
 						Key: "hx-boost",
 						Val: "true",
 					})
-				} else if n.Data == "markdown" {
-					// replace with the markdown
-					
+				case "markdown":
+					if n.Parent == nil {
+						log.Printf("Warning: <markdown> tag found without parent in %s", path)
+						break
+					}
+
+					markdownNodes, parseErr := html.ParseFragment(
+						bytes.NewReader([]byte(markdown)),
+						n.Parent,
+					)
+					if parseErr != nil {
+						log.Printf(
+							"Error parsing markdown HTML fragment for %s: %v. Inserting raw content.",
+							path,
+							parseErr,
+						)
+
+						errorNode := &html.Node{
+							Type: html.ElementNode,
+							Data: "div",
+							Attr: []html.Attribute{
+								{
+									Key: "style",
+									Val: "color:red; border: 1px solid red; padding: 1em;",
+								},
+							},
+							FirstChild: &html.Node{
+								Type: html.TextNode,
+								Data: fmt.Sprintf(
+									"Error processing markdown content: %v",
+									parseErr,
+								),
+							},
+						}
+						n.Parent.InsertBefore(errorNode, n)
+					} else {
+						for _, newNode := range markdownNodes {
+							n.Parent.InsertBefore(newNode, n)
+						}
+					}
+
+					n.Parent.RemoveChild(n)
 				}
 			}
 
