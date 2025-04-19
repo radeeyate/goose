@@ -22,8 +22,8 @@ import (
 	"github.com/yuin/goldmark/parser"
 
 	"github.com/tdewolff/minify/v2"
-	minifyhtml "github.com/tdewolff/minify/v2/html"
 	minifycss "github.com/tdewolff/minify/v2/css"
+	minifyhtml "github.com/tdewolff/minify/v2/html"
 	"github.com/tdewolff/minify/v2/js"
 )
 
@@ -66,27 +66,76 @@ var md = goldmark.New(
 func makeMD(input string) (string, map[string]interface{}) {
 	var buf bytes.Buffer
 
-	context := parser.NewContext()
-	err := md.Convert([]byte(input), &buf, parser.WithContext(context))
+	err := md.Convert([]byte(input), &buf)
 	if err != nil {
 		panic(err)
 	}
 
-	metadata := meta.Get(context)
-
+	metadata := extractMetadata(input)
 	return buf.String(), metadata
 }
 
-func replaceMetaPlaceholders(markdown string, metadata map[string]interface{}) string {
-	re := regexp.MustCompile(`{{\s*\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
+func extractMetadata(input string) map[string]interface{} {
+	context := parser.NewContext()
+	md.Convert([]byte(input), &bytes.Buffer{}, parser.WithContext(context))
+	metadata := meta.Get(context)
+	return metadata
+}
 
-	return re.ReplaceAllStringFunc(markdown, func(match string) string {
+func replaceMetaPlaceholders(
+	markdown string,
+	metadata map[string]interface{},
+	file, fileRootDir, rootDir string,
+) string {
+	re := regexp.MustCompile(`{{\s*\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
+	reFromFile := regexp.MustCompile(`{{\s*from\s+([^\s]+)\s+\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
+
+	markdown = re.ReplaceAllStringFunc(markdown, func(match string) string {
 		key := re.FindStringSubmatch(match)[1]
 		if value, ok := metadata[key]; ok {
 			return fmt.Sprintf("%v", value)
 		}
 		return match
 	})
+
+	markdown = reFromFile.ReplaceAllStringFunc(markdown, func(match string) string {
+		matches := reFromFile.FindStringSubmatch(match)
+		if len(matches) != 3 {
+			return match // invalid format
+		}
+
+		filePath := matches[1]
+
+		if !strings.HasSuffix(filePath, ".md") {
+			filePath += ".md"
+		}
+
+		metaKey := matches[2]
+
+		// resolve relative path based on the current file's directory
+		absFilePath := filepath.Join(fileRootDir, filePath)
+
+		// detect if absfilepath is outside root directory of pages (of the whole project, not the root of the file)
+		if !strings.HasPrefix(absFilePath, rootDir) {
+			log.Printf("Error: File %s is outside the root directory %s\n", absFilePath, rootDir)
+			return match
+		}
+
+		content, err := os.ReadFile(absFilePath)
+		if err != nil {
+			log.Printf("Error reading file %s: %v\n", absFilePath, err)
+			return match
+		}
+
+		_, referencedMetadata := makeMD(string(content))
+
+		if value, ok := referencedMetadata[metaKey]; ok {
+			return fmt.Sprintf("%v", value)
+		}
+		return match
+	})
+
+	return markdown
 }
 
 func main() {
@@ -160,6 +209,16 @@ func main() {
 		nameWithoutExt := baseName[:len(baseName)-len(ext)]
 		outPath := filepath.Join(buildDir, filepath.Dir(relPath), nameWithoutExt+".html")
 
+		if exists, err := exists(filepath.Join(pagesDir, filepath.Dir(relPath), nameWithoutExt, "index.md")); err != nil ||
+			exists {
+			log.Printf(
+				"Both \"%s\" and \"%s\" exist; skipping.\n",
+				baseName,
+				filepath.Join(filepath.Dir(outPath), nameWithoutExt, "index.md"),
+			)
+			return nil
+		}
+
 		err = os.MkdirAll(filepath.Dir(outPath), 0755)
 		if err != nil {
 			log.Printf("Error creating directory %s: %v\n", filepath.Dir(outPath), err)
@@ -174,14 +233,19 @@ func main() {
 		defer out.Close()
 
 		markdown, metadata := makeMD(string(code))
-		markdown = replaceMetaPlaceholders(markdown, metadata)
+		markdown = replaceMetaPlaceholders(markdown, metadata, path, filepath.Dir(path), pagesDir)
 
-		template, err := os.ReadFile("source/templates/default.html")
+		var title string
+		if metadata["title"] != nil {
+			title = fmt.Sprintf("%v", metadata["title"])
+		}
+
+		css, err := os.ReadFile("source/styles/default.css")
 		if err != nil {
 			panic(err)
 		}
 
-		css, err := os.ReadFile("source/styles/default.css")
+		template, err := os.ReadFile("source/templates/default.html")
 		if err != nil {
 			panic(err)
 		}
@@ -190,8 +254,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
-		title := "wah"
 
 		var walk func(*html.Node)
 		walk = func(n *html.Node) {
