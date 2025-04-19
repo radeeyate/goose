@@ -244,12 +244,12 @@ func main() {
 			title = fmt.Sprintf("%v", metadata["title"])
 		}
 
-		css, err := os.ReadFile("source/styles/default.css")
+		css, err := os.ReadFile("source/styles/default.css")  // TODO: read style config from frontmatter
 		if err != nil {
 			panic(err)
 		}
 
-		template, err := os.ReadFile("source/templates/default.html")
+		template, err := os.ReadFile("source/templates/default.html") // TODO: read template config from frontmatter
 		if err != nil {
 			panic(err)
 		}
