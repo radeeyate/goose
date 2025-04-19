@@ -244,14 +244,111 @@ func main() {
 			title = fmt.Sprintf("%v", metadata["title"])
 		}
 
-		css, err := os.ReadFile("source/styles/default.css")  // TODO: read style config from frontmatter
-		if err != nil {
-			panic(err)
+		var css []byte
+		if metadata["styles"] != nil {
+			for _, style := range removeDuplicates(metadata["styles"].([]interface{})) {
+				fileName := filepath.Base(style.(string))
+				if !strings.HasSuffix(fileName, ".css") {
+					fileName += ".css"
+				}
+
+				if existence, err := exists(filepath.Join(srcFolder, "source", "styles", fileName)); existence ||
+					err != nil {
+					addedCss, err := os.ReadFile(
+						filepath.Join(srcFolder, "source", "styles", fileName),
+					)
+
+					if err != nil {
+						panic(err)
+					}
+
+					css = append(css, append(addedCss, "\n"...)...)
+				} else {
+					log.Printf("Stylesheet %s does not exist.", fileName)
+				}
+			}
+		} else {
+			if existence, err := exists("source/styles/default.css"); existence || err != nil {
+				css, err = os.ReadFile(
+					"source/styles/default.css",
+				)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				log.Printf("Default stylesheet does not exist; proceeding to not use a stylesheet.")
+			}
 		}
 
-		template, err := os.ReadFile("source/templates/default.html") // TODO: read template config from frontmatter
-		if err != nil {
-			panic(err)
+		var scripts [][]byte
+		if metadata["scripts"] != nil {
+			for _, style := range removeDuplicates(metadata["scripts"].([]interface{})) {
+				fileName := filepath.Base(style.(string))
+				if !strings.HasSuffix(fileName, ".js") {
+					fileName += ".js"
+				}
+
+				if existence, err := exists(filepath.Join(srcFolder, "source", "scripts", fileName)); existence ||
+					err != nil {
+					addedJS, err := os.ReadFile(
+						filepath.Join(srcFolder, "source", "scripts", fileName),
+					)
+
+					if err != nil {
+						panic(err)
+					}
+
+					fmt.Println(string(addedJS))
+
+					scripts = append(scripts, addedJS)
+				} else {
+					log.Printf("Script %s does not exist.", fileName)
+				}
+			}
+		} else {
+			if existence, err := exists("source/scripts/default.js"); existence || err != nil {
+				defaultScript, err := os.ReadFile(
+					"source/scripts/default.js",
+				)
+				if err != nil {
+					panic(err)
+				}
+				scripts = append(scripts, defaultScript)
+			} else {
+				log.Printf("Default script does not exist; proceeding to not use a script.")
+			}
+		}
+
+		var template []byte
+		if existence, err := exists("source/templates/default.html"); existence || err != nil {
+			if metadata["template"] != nil {
+				fileName := filepath.Base(metadata["template"].(string))
+				if !strings.HasSuffix(fileName, ".html") {
+					fileName += ".html"
+				}
+
+				if existence, err := exists(filepath.Join(srcFolder, "source", "templates", fileName)); existence ||
+					err != nil {
+					template, err = os.ReadFile(
+						filepath.Join(srcFolder, "source", "templates", fileName),
+					)
+					if err != nil {
+						panic(err)
+					}
+				} else {
+					log.Printf("Template %s does not exist.", fileName)
+				}
+			} else {
+				template, err = os.ReadFile(
+					"source/templates/default.html",
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+		} else {
+			template = []byte("markdown")
+			log.Printf("Default template does not exist; proceeding to not use a template.")
 		}
 
 		doc, err := html.Parse(bytes.NewReader(template))
@@ -283,6 +380,18 @@ func main() {
 					}
 					n.AppendChild(styleNode)
 
+					for _, script := range scripts {
+						scriptsNode := &html.Node{
+							Type: html.ElementNode,
+							Data: "script",
+							FirstChild: &html.Node{
+								Type: html.TextNode,
+								Data: string(script),
+							},
+						}
+						n.AppendChild(scriptsNode)
+					}
+
 					scriptNode := &html.Node{
 						Type: html.ElementNode,
 						Data: "script",
@@ -294,14 +403,14 @@ func main() {
 						},
 					}
 					n.AppendChild(scriptNode)
-				} else if n.Data == "markdown" {
-					n.Type = html.RawNode
-					n.Data = markdown
 				} else if n.Data == "a" {
 					n.Attr = append(n.Attr, html.Attribute{
 						Key: "hx-boost",
 						Val: "true",
 					})
+				} else if n.Data == "markdown" {
+					// replace with the markdown
+					
 				}
 			}
 
@@ -319,7 +428,6 @@ func main() {
 		}
 
 		renderedHtml := buf.String()
-		renderedHtml = strings.ReplaceAll(renderedHtml, "markdown", markdown)
 
 		minifier := minify.New()
 		htmlMinifier := &minifyhtml.Minifier{

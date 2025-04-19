@@ -14,3 +14,15 @@ func exists(path string) (bool, error) {
 	}
 	return false, err
 }
+
+func removeDuplicates(input []interface{}) []interface{} {
+	seen := make(map[interface{}]bool)
+	result := []interface{}{}
+	for _, item := range input {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	return result
+}

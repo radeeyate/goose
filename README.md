@@ -53,7 +53,7 @@ This will generate a static site in the `build` directory.
 - [x] Templating
 - [x] Metadata variable placeholders
 - [x] CSS bundling
-- [ ] JS bundling (soon™)
+- [x] JS bundling
 
 ### Markdown support
 
@@ -82,11 +82,48 @@ This will generate a static site in the `build` directory.
 
 Anywhere the word `markdown` is found in the template, your Markdown will be inserted. In the future, you will be able to have a `<markdown />` tag instead.
 
+The template for a page is determined by the `template` variable in the front matter:
+
+```md
+---
+title: My Page
+template: custom
+---
+```
+
+In this example, the `custom.html` file in the `templates` directory will be used as the template. If no template is declared, `default.html` will be used.
+
 The output of all Markdown conversion and Markdown conversion is minified, including CSS and Javascript.
 
 ### CSS Bundling
 
-The stylesheet for a declared page will be automatically inserted into the `<head>` of the HTML template.
+The stylesheet for a declared page will be automatically inserted into the `<head>` of the HTML template. You can declare custom styles for a page using the front matter:
+
+```md
+---
+title: My Page
+styles:
+- default
+- custom
+---
+```
+
+In this example, the `default.css` and `custom.css` files will be bundled into the page. You can place these styles in the `styles` directory as mentioned earlier. `default.css` will be applied if a custom style is not declared.
+
+### JS Bundling
+
+The script for a declared page will be automatically inserted into the `<head>` of the HTML template. You can declare custom scripts for a page using the front matter:
+
+```md
+---
+title: My Page
+scripts:
+- default
+- custom
+---
+```
+
+In this example, the `default.js` and `custom.js` files will be bundled into the page. You can place these styles in the `scripts` directory as mentioned earlier. `default.js` will be applied if a custom style is not declared.
 
 ### Metadata
 
