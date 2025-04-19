@@ -85,7 +85,7 @@ func extractMetadata(input string) map[string]interface{} {
 func replaceMetaPlaceholders(
 	markdown string,
 	metadata map[string]interface{},
-	file, fileRootDir, rootDir string,
+	fileRootDir, rootDir string,
 ) string {
 	re := regexp.MustCompile(`{{\s*\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
 	reFromFile := regexp.MustCompile(`{{\s*from\s+([^\s]+)\s+\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
@@ -233,7 +233,7 @@ func main() {
 		defer out.Close()
 
 		markdown, metadata := makeMD(string(code))
-		markdown = replaceMetaPlaceholders(markdown, metadata, path, filepath.Dir(path), pagesDir)
+		markdown = replaceMetaPlaceholders(markdown, metadata, filepath.Dir(path), pagesDir)
 
 		var title string
 		if metadata["title"] != nil {
