@@ -4,7 +4,7 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  cmd = "go build -o ./tmp/main .;./tmp/main;python3 -m http.server -d build"
+  cmd = "go build -o ./tmp/main .;./tmp/main generate;python3 -m http.server -d build"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", "build"]
   exclude_file = []
