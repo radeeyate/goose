@@ -132,3 +132,7 @@ You can access variables in the front matter of a Markdown file using the `{{ .m
 For example, you could use `{{ .meta.title }}` to retrieve the document's title. You can use `{{ from index .meta.title }}` to retrieve the title of a file named `index.md`. This supports directory traversal, so you could do something like `{{ from ../index .meta.title }}` or `{{ from blogs/firstblog .meta.tags }}`
 
 If a `title` variable is found in the front matter of a Markdown file, it is automatically inserted into the document's `<head>`.
+
+## License
+
+goose is open-sourced under the MIT license.
