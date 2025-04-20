@@ -50,6 +50,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	defaultMetadata := viper.Get("defaultMetadata").(map[string]interface{})
 	syntaxHighlightingUseCustomBackground := viper.GetBool("syntaxHighlightingUseCustomBackground")
 	syntaxHighlightingCustomBackground := viper.GetString("syntaxHighlightingCustomBackground")
+	enableCodeBlockLineNumbers := viper.GetBool("enableCodeBlockLineNumbers")
+	enableEmoji := viper.GetBool("enableEmoji")
 
 	if syntaxHighlightingUseCustomBackground && syntaxHighlightingCustomBackground == "" {
 		log.Println(
@@ -125,6 +127,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				Theme:                                 syntaxHighlightingStyle,
 				SyntaxHighlightingUseCustomBackground: false,
 				SyntaxHighlightingCustomBackground:    "",
+				EnableCodeBlockLineNumbers:            enableCodeBlockLineNumbers,
+				EnableEmoji:                           enableEmoji,
 			},
 			defaultMetadata,
 		)
@@ -174,6 +178,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				Theme:                                 syntaxHighlightingStyle,
 				SyntaxHighlightingUseCustomBackground: syntaxHighlightingUseCustomBackground,
 				SyntaxHighlightingCustomBackground:    syntaxHighlightingCustomBackground,
+				EnableCodeBlockLineNumbers:            enableCodeBlockLineNumbers,
+				EnableEmoji:                           enableEmoji,
 			},
 		)
 		if err != nil {
@@ -189,6 +195,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				Theme:                                 syntaxHighlightingStyle,
 				SyntaxHighlightingUseCustomBackground: syntaxHighlightingUseCustomBackground,
 				SyntaxHighlightingCustomBackground:    syntaxHighlightingCustomBackground,
+				EnableCodeBlockLineNumbers:            enableCodeBlockLineNumbers,
+				EnableEmoji:                           enableEmoji,
 			},
 			filepath.Dir(path),
 			pagesDir,

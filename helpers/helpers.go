@@ -21,6 +21,8 @@ type MarkdownConfig struct {
 	Theme                                 string
 	SyntaxHighlightingUseCustomBackground bool
 	SyntaxHighlightingCustomBackground    string
+	EnableCodeBlockLineNumbers            bool
+	EnableEmoji                           bool
 }
 
 func IsFile(path string) (bool, error) {
@@ -89,41 +91,49 @@ func ExtractMetadata(
 
 func generateMarkdownRenderer(config MarkdownConfig) goldmark.Markdown {
 	var highlightingConfig map[chroma.TokenType]string
+	fmt.Println(config.SyntaxHighlightingUseCustomBackground)
 	if config.SyntaxHighlightingUseCustomBackground {
+		fmt.Println(config.SyntaxHighlightingCustomBackground)
 		highlightingConfig = map[chroma.TokenType]string{
 			chroma.Background: config.SyntaxHighlightingCustomBackground,
 		}
+		fmt.Println(highlightingConfig)
+	}
+
+	extensions := []goldmark.Extender{
+		extension.GFM,
+		extension.Linkify,
+		extension.Footnote,
+		extension.Typographer,
+		extension.Strikethrough,
+		extension.TaskList,
+		extension.DefinitionList,
+		highlighting.NewHighlighting(
+			highlighting.WithStyle(config.Theme),
+			highlighting.WithFormatOptions(
+				chromahtml.WithLineNumbers(config.EnableCodeBlockLineNumbers),
+				chromahtml.WithCustomCSS(highlightingConfig),
+			),
+			highlighting.WithGuessLanguage(true),
+		),
+		meta.Meta,
+		extras.New(
+			extras.Config{
+				Delete:      extras.DeleteConfig{Enable: true},
+				Insert:      extras.InsertConfig{Enable: true},
+				Mark:        extras.MarkConfig{Enable: true},
+				Subscript:   extras.SubscriptConfig{Enable: true},
+				Superscript: extras.SuperscriptConfig{Enable: true},
+			},
+		),
+	}
+
+	if config.EnableEmoji {
+		extensions = append(extensions, emoji.New(emoji.WithRenderingMethod(emoji.Twemoji)))
 	}
 
 	return goldmark.New(
-		goldmark.WithExtensions(
-			extension.GFM,
-			extension.Linkify,
-			extension.Footnote,
-			extension.Typographer,
-			extension.Strikethrough,
-			extension.TaskList,
-			extension.DefinitionList,
-			highlighting.NewHighlighting(
-				highlighting.WithStyle(config.Theme),
-				highlighting.WithFormatOptions(
-					chromahtml.WithLineNumbers(true),
-					chromahtml.WithCustomCSS(highlightingConfig),
-				),
-				highlighting.WithGuessLanguage(true),
-			),
-			emoji.New(emoji.WithRenderingMethod(emoji.Twemoji)),
-			meta.Meta,
-			extras.New(
-				extras.Config{
-					Delete:      extras.DeleteConfig{Enable: true},
-					Insert:      extras.InsertConfig{Enable: true},
-					Mark:        extras.MarkConfig{Enable: true},
-					Subscript:   extras.SubscriptConfig{Enable: true},
-					Superscript: extras.SuperscriptConfig{Enable: true},
-				},
-			),
-		),
+		goldmark.WithExtensions(extensions...),
 		goldmark.WithParserOptions(
 			parser.WithAutoHeadingID(),
 		),

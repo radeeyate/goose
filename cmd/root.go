@@ -76,6 +76,8 @@ func initConfig() {
 	viper.SetDefault("defaultMetadata", map[string]interface{}{})
 	viper.SetDefault("syntaxHighlightingUseCustomBackground", false)
 	viper.SetDefault("syntaxHighlightingCustomBackground", "")
+	viper.SetDefault("enableCodeBlockLineNumbers", true)
+	viper.SetDefault("enableEmoji", true)
 
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
