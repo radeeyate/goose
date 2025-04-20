@@ -40,6 +40,7 @@ func init() {
 	viper.BindPFlag("buildDir", rootCmd.PersistentFlags().Lookup("build"))
 
 	rootCmd.AddCommand(generateCmd)
+	rootCmd.AddCommand(serveCmd)
 }
 
 func initConfig() {
@@ -103,6 +104,12 @@ var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate the static site",
 	Long:  `Generate the static site from the source files.`,
+}
+
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Starts a development server",
+	Long:  `Starts a local development server that serves the built site and watches for changes in the source directory to rebuild automatically.`,
 }
 
 func Execute() {
