@@ -1,4 +1,4 @@
-module goose
+module github.com/radeeyate/goose
 
 go 1.23.4
 
