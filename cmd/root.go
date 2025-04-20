@@ -12,15 +12,15 @@ import (
 var cfgFile string
 
 const (
-	defaultSourceDir    = "source"
-	defaultBuildDir     = "build"
-	defaultPagesDir     = "pages"
-	defaultStylesDir    = "styles"
-	defaultScriptsDir   = "scripts"
-	defaultTemplatesDir = "templates"
-	defaultStaticDir    = "static"
-	defaultTemplate     = "default.html"
-	defaultTheme        = "github"
+	defaultSourceDir     = "source"
+	defaultBuildDir      = "build"
+	defaultPagesDir      = "pages"
+	defaultStylesDir     = "styles"
+	defaultScriptsDir    = "scripts"
+	defaultTemplatesDir  = "templates"
+	defaultStaticDir     = "static"
+	defaultTemplate      = "default.html"
+	defaultStyle         = "github"
 	defaultHtmxSourceURL = "https://unpkg.com/htmx.org@2.0.4"
 )
 
@@ -62,7 +62,7 @@ func initConfig() {
 	viper.SetDefault("scriptsDir", defaultScriptsDir)
 	viper.SetDefault("templatesDir", defaultTemplatesDir)
 	viper.SetDefault("staticDir", defaultStaticDir)
-	viper.SetDefault("syntaxHighlightingTheme", defaultTheme)
+	viper.SetDefault("syntaxHighlightingStyle", defaultStyle)
 	viper.SetDefault("defaultTemplate", defaultTemplate)
 	viper.SetDefault("defaultStyles", []string{"default.css"})
 	viper.SetDefault("defaultScripts", []string{"default.js"})
@@ -72,6 +72,10 @@ func initConfig() {
 	viper.SetDefault("htmxSourceURL", defaultHtmxSourceURL)
 	viper.SetDefault("includeDrafts", false)
 	viper.SetDefault("markdownPlaceholderTag", "markdown")
+	viper.SetDefault("prettyURLs", true)
+	viper.SetDefault("defaultMetadata", map[string]interface{}{})
+	viper.SetDefault("syntaxHighlightingUseCustomBackground", false)
+	viper.SetDefault("syntaxHighlightingCustomBackground", "")
 
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())

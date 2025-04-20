@@ -2,6 +2,8 @@ package helpers
 
 import (
 	"bytes"
+	"fmt" // <-- Add fmt import if not already there
+	"io"  // <-- Add io import
 	"os"
 
 	"github.com/alecthomas/chroma/v2"
@@ -14,6 +16,12 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 )
+
+type MarkdownConfig struct {
+	Theme                                 string
+	SyntaxHighlightingUseCustomBackground bool
+	SyntaxHighlightingCustomBackground    string
+}
 
 func IsFile(path string) (bool, error) {
 	info, err := os.Lstat(path)
@@ -43,28 +51,50 @@ func RemoveDuplicates(input []interface{}) []interface{} {
 	return result
 }
 
-func GenerateMarkdown(input, theme string) (string, map[string]interface{}) {
+func RenderMarkdown(input string, config MarkdownConfig) (string, error) {
 	var buf bytes.Buffer
-
-	err := generateMarkdownRenderer(theme).Convert([]byte(input), &buf)
+	mdRenderer := generateMarkdownRenderer(config)
+	err := mdRenderer.Convert([]byte(input), &buf)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("markdown conversion failed: %w", err)
+	}
+	return buf.String(), nil
+}
+
+func ExtractMetadata(
+	input string,
+	config MarkdownConfig,
+	defaultMeta map[string]interface{},
+) map[string]interface{} {
+	context := parser.NewContext()
+	mdRenderer := generateMarkdownRenderer(config)
+	_ = mdRenderer.Convert([]byte(input), io.Discard, parser.WithContext(context))
+	pageMeta := meta.Get(context)
+
+	finalMeta := make(map[string]interface{})
+	if defaultMeta != nil {
+		for key, value := range defaultMeta {
+			finalMeta[key] = value
+		}
 	}
 
-	metadata := ExtractMetadata(input, theme)
-	return buf.String(), metadata
+	if pageMeta != nil {
+		for key, value := range pageMeta {
+			finalMeta[key] = value
+		}
+	}
+
+	return finalMeta
 }
 
-func ExtractMetadata(input string, theme string) map[string]interface{} {
-	context := parser.NewContext()
-	generateMarkdownRenderer(
-		theme,
-	).Convert([]byte(input), &bytes.Buffer{}, parser.WithContext(context))
-	metadata := meta.Get(context)
-	return metadata
-}
+func generateMarkdownRenderer(config MarkdownConfig) goldmark.Markdown {
+	var highlightingConfig map[chroma.TokenType]string
+	if config.SyntaxHighlightingUseCustomBackground {
+		highlightingConfig = map[chroma.TokenType]string{
+			chroma.Background: config.SyntaxHighlightingCustomBackground,
+		}
+	}
 
-func generateMarkdownRenderer(theme string) goldmark.Markdown {
 	return goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
@@ -75,12 +105,10 @@ func generateMarkdownRenderer(theme string) goldmark.Markdown {
 			extension.TaskList,
 			extension.DefinitionList,
 			highlighting.NewHighlighting(
-				highlighting.WithStyle(theme),
+				highlighting.WithStyle(config.Theme),
 				highlighting.WithFormatOptions(
 					chromahtml.WithLineNumbers(true),
-					chromahtml.WithCustomCSS(map[chroma.TokenType]string{
-						chroma.Background: "background-color: #3e4451;",
-					}),
+					chromahtml.WithCustomCSS(highlightingConfig),
 				),
 				highlighting.WithGuessLanguage(true),
 			),

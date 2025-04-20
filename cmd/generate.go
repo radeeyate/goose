@@ -36,7 +36,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	pagesDir := filepath.Join(sourceDir, viper.GetString("pagesDir"))
 	templatesDir := filepath.Join(sourceDir, viper.GetString("templatesDir"))
 	staticDir := filepath.Join(sourceDir, viper.GetString("staticDir"))
-	syntaxHighlightingTheme := viper.GetString("syntaxHighlightingTheme")
+	syntaxHighlightingStyle := viper.GetString("syntaxHighlightingStyle")
 	defaultTemplate := viper.GetString("defaultTemplate")
 	defaultStyles := viper.GetStringSlice("defaultStyles")
 	defaultScripts := viper.GetStringSlice("defaultScripts")
@@ -46,6 +46,16 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	htmxSourceURL := viper.GetString("htmxSourceURL")
 	includeDrafts := viper.GetBool("includeDrafts")
 	markdownPlaceholderTag := viper.GetString("markdownPlaceholderTag")
+	prettyURLs := viper.GetBool("prettyURLs")
+	defaultMetadata := viper.Get("defaultMetadata").(map[string]interface{})
+	syntaxHighlightingUseCustomBackground := viper.GetBool("syntaxHighlightingUseCustomBackground")
+	syntaxHighlightingCustomBackground := viper.GetString("syntaxHighlightingCustomBackground")
+
+	if syntaxHighlightingUseCustomBackground && syntaxHighlightingCustomBackground == "" {
+		log.Println(
+			"Warning: syntaxHighlightingUseCustomBackground is set to true, but no custom background color was provided. Using default.",
+		)
+	}
 
 	srcInfo, err := os.Stat(sourceDir)
 	if err != nil {
@@ -109,7 +119,15 @@ func runGenerate(cmd *cobra.Command, args []string) {
 			return nil
 		}
 
-		metadata := helpers.ExtractMetadata(string(code), syntaxHighlightingTheme)
+		metadata := helpers.ExtractMetadata(
+			string(code),
+			helpers.MarkdownConfig{
+				Theme:                                 syntaxHighlightingStyle,
+				SyntaxHighlightingUseCustomBackground: false,
+				SyntaxHighlightingCustomBackground:    "",
+			},
+			defaultMetadata,
+		)
 		if !includeDrafts && metadata["draft"] == true { // skip draft
 			log.Println("Skipping draft.")
 			return nil
@@ -120,18 +138,20 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		nameWithoutExt := baseName[:len(baseName)-len(ext)]
 		outPath := filepath.Join(buildDir, filepath.Dir(relPath), nameWithoutExt+".html")
 
-		if exists, err := helpers.IsFile(filepath.Join(pagesDir, filepath.Dir(relPath), nameWithoutExt, "index.md")); exists &&
-			err == nil ||
-			exists {
-			log.Printf(
-				"Both \"%s\" and \"%s\" exist; skipping.\n",
-				baseName,
-				filepath.Join(filepath.Dir(relPath), nameWithoutExt, "index.md"),
-			)
-			return nil
-		} else {
-			if nameWithoutExt != "index" {
-				outPath = filepath.Join(buildDir, filepath.Dir(relPath), nameWithoutExt, "index.html")
+		if prettyURLs {
+			if exists, err := helpers.IsFile(filepath.Join(pagesDir, filepath.Dir(relPath), nameWithoutExt, "index.md")); exists &&
+				err == nil ||
+				exists {
+				log.Printf(
+					"Both \"%s\" and \"%s\" exist; skipping.\n",
+					baseName,
+					filepath.Join(filepath.Dir(relPath), nameWithoutExt, "index.md"),
+				)
+				return nil
+			} else {
+				if nameWithoutExt != "index" {
+					outPath = filepath.Join(buildDir, filepath.Dir(relPath), nameWithoutExt, "index.html")
+				}
 			}
 		}
 
@@ -148,8 +168,31 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		}
 		defer out.Close()
 
-		markdown, metadata := helpers.GenerateMarkdown(string(code), syntaxHighlightingTheme)
-		markdown = replaceMetaPlaceholders(markdown, metadata, filepath.Dir(path), pagesDir)
+		markdown, err := helpers.RenderMarkdown(
+			string(code),
+			helpers.MarkdownConfig{
+				Theme:                                 syntaxHighlightingStyle,
+				SyntaxHighlightingUseCustomBackground: syntaxHighlightingUseCustomBackground,
+				SyntaxHighlightingCustomBackground:    syntaxHighlightingCustomBackground,
+			},
+		)
+		if err != nil {
+			log.Printf("Error rendering markdown for file %s: %v\n", path, err)
+			return nil
+		}
+
+		markdown = replaceMetaPlaceholders(
+			markdown,
+			defaultMetadata,
+			metadata,
+			helpers.MarkdownConfig{
+				Theme:                                 syntaxHighlightingStyle,
+				SyntaxHighlightingUseCustomBackground: syntaxHighlightingUseCustomBackground,
+				SyntaxHighlightingCustomBackground:    syntaxHighlightingCustomBackground,
+			},
+			filepath.Dir(path),
+			pagesDir,
+		)
 
 		var title string
 		if metadata["title"] != nil {
@@ -431,7 +474,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 func replaceMetaPlaceholders(
 	markdown string,
-	metadata map[string]interface{},
+	defaultMetadata, metadata map[string]interface{}, config helpers.MarkdownConfig,
 	fileRootDir, rootDir string,
 ) string {
 	re := regexp.MustCompile(`{{\s*\.meta\.([a-zA-Z0-9_-]+)\s*}}`)
@@ -474,7 +517,11 @@ func replaceMetaPlaceholders(
 			return match
 		}
 
-		_, referencedMetadata := helpers.GenerateMarkdown(string(content), "")
+		referencedMetadata := helpers.ExtractMetadata(
+			string(content),
+			config,
+			defaultMetadata,
+		)
 
 		if value, ok := referencedMetadata[metaKey]; ok {
 			return fmt.Sprintf("%v", value)

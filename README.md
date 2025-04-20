@@ -51,6 +51,7 @@ This will generate a static site in the `build` directory.
 
 - [x] Markdown support
 - [x] Templating
+  - [ ] Pass front matter to template
 - [x] Metadata variable placeholders
 - [x] CSS bundling
 - [x] JS bundling
