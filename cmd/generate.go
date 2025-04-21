@@ -59,16 +59,8 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		)
 	}
 
-	srcInfo, err := os.Stat(sourceDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("Source folder not found.")
-			return
-		}
-		log.Fatal(err)
-	}
-	if !srcInfo.IsDir() {
-		fmt.Println("Source folder is not a directory.")
+	if exists, err := helpers.IsDir(sourceDir); !exists && err != nil {
+		fmt.Printf("%s directory not found.", sourceDir)
 		return
 	}
 
@@ -76,7 +68,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		log.Fatalf("%s/%s directory not found.", sourceDir, pagesDir)
 	}
 
-	err = os.RemoveAll(buildDir)
+	err := os.RemoveAll(buildDir)
 	if err != nil && !os.IsNotExist(err) {
 		log.Println("Warning: Could not remove existing build directory:", err)
 	}
