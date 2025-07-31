@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"html/template"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -45,7 +47,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 	addHxBoost := viper.GetBool("addHxBoost")
 	htmxSourceURL := viper.GetString("htmxSourceURL")
 	includeDrafts := viper.GetBool("includeDrafts")
-	markdownPlaceholderTag := viper.GetString("markdownPlaceholderTag")
+	//markdownPlaceholderTag := viper.GetString("markdownPlaceholderTag")
 	prettyURLs := viper.GetBool("prettyURLs")
 	defaultMetadata := viper.Get("defaultMetadata").(map[string]interface{})
 	syntaxHighlightingUseCustomBackground := viper.GetBool("syntaxHighlightingUseCustomBackground")
@@ -279,7 +281,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 			}
 		}
 
-		var template []byte
+		var templateBytes []byte
 		if exists, err := helpers.IsFile(filepath.Join(templatesDir, defaultTemplate)); exists &&
 			err == nil {
 			if metadata["template"] != nil {
@@ -290,7 +292,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 				if exists, err := helpers.IsFile(filepath.Join(templatesDir, fileName)); exists &&
 					err == nil {
-					template, err = os.ReadFile(
+					templateBytes, err = os.ReadFile(
 						filepath.Join(templatesDir, fileName),
 					)
 					if err != nil {
@@ -300,7 +302,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 					log.Printf("Template %s does not exist.", fileName)
 				}
 			} else {
-				template, err = os.ReadFile(
+				templateBytes, err = os.ReadFile(
 					filepath.Join(templatesDir, defaultTemplate),
 				)
 				if err != nil {
@@ -308,11 +310,11 @@ func runGenerate(cmd *cobra.Command, args []string) {
 				}
 			}
 		} else {
-			template = []byte(`<!doctypehtml><html lang="en"><meta charset="UTF-8"><meta content="width=device-width,initial-scale=1"name="viewport"><body><markdown></markdown>`)
+			templateBytes = []byte(`<!doctypehtml><html lang="en"><meta charset="UTF-8"><meta content="width=device-width,initial-scale=1"name="viewport"><body><markdown></markdown>`)
 			log.Printf("Default template does not exist; proceeding to not use a template.")
 		}
 
-		doc, err := html.Parse(bytes.NewReader(template))
+		doc, err := html.Parse(bytes.NewReader(templateBytes))
 		if err != nil {
 			panic(err)
 		}
@@ -374,7 +376,7 @@ func runGenerate(cmd *cobra.Command, args []string) {
 							Val: "true",
 						})
 					}
-				case markdownPlaceholderTag:
+				/*case markdownPlaceholderTag:
 					if n.Parent == nil {
 						log.Printf("Warning: <markdown> tag found without parent in %s", path)
 						break
@@ -415,12 +417,14 @@ func runGenerate(cmd *cobra.Command, args []string) {
 						}
 					}
 
-					n.Parent.RemoveChild(n)
+					n.Parent.RemoveChild(n)*/
 				}
 			}
 
-			for child := n.FirstChild; child != nil; child = child.NextSibling {
-				walk(child)
+			for c := n.FirstChild; c != nil; {
+				next := c.NextSibling
+				walk(c)
+				c = next
 			}
 		}
 
@@ -433,6 +437,21 @@ func runGenerate(cmd *cobra.Command, args []string) {
 		}
 
 		renderedHtml := buf.String()
+
+		tmpl, err := template.New("").Parse(renderedHtml)
+		if err != nil {
+			// do something
+			panic(err)
+		}
+		var output bytes.Buffer
+		data := map[any]any{"Markdown": template.HTML(markdown)}
+		for k, v := range metadata {
+			data[k] = v
+		}
+		if err := tmpl.Execute(&output, data); err != nil {
+			panic(err)
+		}
+
 
 		minifier := minify.New()
 		htmlMinifier := &minifyhtml.Minifier{
@@ -448,12 +467,12 @@ func runGenerate(cmd *cobra.Command, args []string) {
 
 		var minifedHTML string
 		if minifyOutput {
-			minifedHTML, err = minifier.String("text/html", renderedHtml)
+			minifedHTML, err = minifier.String("text/html", output.String())
 			if err != nil {
 				panic(err)
 			}
 		} else {
-			minifedHTML = renderedHtml
+			minifedHTML = output.String()
 		}
 
 		_, err = out.WriteString(minifedHTML)
